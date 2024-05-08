@@ -1,0 +1,99 @@
+#include <ESP8266WiFi.h> // Including the library for ESP8266 Wi-Fi module
+#include <Adafruit_Sensor.h> // Including the Adafruit sensor library
+#include <DHT.h> // Including the library for DHT sensors
+#include <Wire.h> // Including the Wire library for I2C communication
+#include <Adafruit_GFX.h> // Including the Adafruit graphics library
+#include <Adafruit_SSD1306.h> // Including the Adafruit SSD1306 OLED display library
+
+#define DHTPIN D5 // Defining the pin where the DHT22 sensor is connected
+#define DHTTYPE DHT22 // Defining the type of DHT sensor being used
+#define OLED_RESET 0 // Defining the reset pin for the OLED display (not used in this code)
+
+// Define the OLED display dimensions
+#define SCREEN_WIDTH 128 // Setting the width of the OLED display
+#define SCREEN_HEIGHT 64 // Setting the height of the OLED display
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); // Initializing the SSD1306 OLED display
+
+DHT dht(DHTPIN, DHTTYPE); // Initializing the DHT sensor with defined pin and type
+
+const char* ssid = "UUMWiFi_Guest"; // Setting the Wi-Fi SSID
+const char* password = ""; // Setting the Wi-Fi password
+
+// Additional pin definition for LDR sensor
+const int LDR_SENSOR_PIN = A0; // Defining the analog pin connected to the LDR sensor
+
+void setup() {
+  Serial.begin(9600); // Starting serial communication with baud rate 9600
+  delay(1000); // Delay to allow time for the serial monitor to open
+
+  // Initialize the OLED display with I2C address 0x3C
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Checking if OLED display initialization failed
+    Serial.println(F("SSD1306 allocation failed")); // Printing error message if display initialization failed
+    for(;;); // Infinite loop to stop program execution
+  }
+  // Clear the display buffer
+  display.clearDisplay(); // Clearing the OLED display buffer
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password); // Connecting to Wi-Fi network with defined SSID and password
+  while (WiFi.status() != WL_CONNECTED) { // Waiting until Wi-Fi connection is established
+    delay(1000); // Delay for 1 second
+    Serial.println("Connecting to WiFi..."); // Printing status message
+  }
+  Serial.println("Connected to WiFi"); // Printing message after successful Wi-Fi connection
+
+  dht.begin(); // Starting the DHT sensor
+}
+
+void loop() {
+  // Reading temperature or humidity takes about 250 milliseconds!
+  float humidity = dht.readHumidity(); // Reading humidity from DHT sensor
+  float temperature = dht.readTemperature(); // Reading temperature from DHT sensor
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(humidity) || isnan(temperature)) { // Checking if temperature or humidity reading failed
+    Serial.println("Failed to read from DHT sensor!"); // Printing error message
+    return; // Exiting loop
+  }
+
+  // Read LDR sensor value
+  int ldrValue = analogRead(A0); // Reading analog value from LDR sensor connected to pin A0
+
+  // Determine Day or Night based on LDR value (adjust threshold as needed)
+  String dayNight = "Night"; // Default value for day/night status
+  if (ldrValue < 500) { // Checking LDR value to determine if it's day or night
+    dayNight = "Day"; // Updating day/night status
+  }
+
+  // Clear the display
+  display.clearDisplay(); // Clearing OLED display buffer
+
+  // Set text size and color
+  display.setTextSize(1); // Setting text size
+  display.setTextColor(SSD1306_WHITE); // Setting text color
+
+  // Display temperature value in the middle
+  String temp = "Temperature: " + String(temperature) + " C"; // Formatting temperature string
+  int xTemp = max((128 - (temp.length() * 6)) / 2, (unsigned int) 0); // Calculating X position to center text
+  display.setCursor(xTemp, 10); // Setting cursor position
+  display.println(temp); // Printing temperature value
+
+  // Display humidity value below temperature
+  String hum = "Humidity: " + String(humidity) + " %"; // Formatting humidity string
+  int xHum = max((128 - (hum.length() * 6)) / 2, (unsigned int) 0); // Calculating X position to center text
+  display.setCursor(xHum, 30); // Setting cursor position
+  display.println(hum); // Printing humidity value
+
+  // Display Day/Night status below humidity
+  String dayNightStr = "Day/Night: " + dayNight +"-" + ldrValue; // Formatting day/night status string
+  int xDayNight = max((128 - (dayNightStr.length() * 6)) / 2, (unsigned int) 0); // Calculating X position to center text
+  display.setCursor(xDayNight, 50); // Setting cursor position
+  display.println(dayNightStr); // Printing day/night status
+
+  // Display on OLED
+  display.display(); // Displaying content on OLED display
+
+  delay(500); // Delay between readings
+}
